@@ -1,222 +1,264 @@
 "use client";
-
 import React, { useEffect, useState } from "react";
 import { Search, Plus, Edit2, Trash2, X } from "lucide-react";
-import { fetchUsers } from "../services/userService"; // Your existing service import
+import {
+  fetchUsers,
+  addUser,
+  editUser,
+  deleteUser,
+} from "../services/userService";
 import "../assets/style.scss";
-
-// If you're using TypeScript, add these interfaces
+import ConfirmationModal from "./modals/Confimation";
 interface User {
   id: number;
   name: string;
-  lastName: string;
   email: string;
   username?: string;
   phone?: string;
   website?: string;
 }
 
-interface NewUser {
-  id: number;
-  name: string;
-  lastName: string;
-  email: string;
-}
-
 const UserTable = () => {
-  const [users, setUsers] = useState([]);
+  const [users, setUsers] = useState<User[]>([]);
+  const [filteredUsers, setFilteredUsers] = useState<User[]>([]);
   const [showAddUserForm, setShowAddUserForm] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [newUser, setNewUser] = useState({
     id: 0,
     name: "",
-    lastName: "",
     email: "",
+    username: "",
+    phone: "",
   });
+  const [showConfirmationModal, setShowConfirmationModal] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<number | null>(null);
 
   useEffect(() => {
     const getUsers = async () => {
       const data = await fetchUsers();
       setUsers(data);
+      setFilteredUsers(data);
     };
     getUsers();
   }, []);
 
-  const handleEdit = (user) => {
+  useEffect(() => {
+    const filtered = users.filter((user) => {
+      const fullName = `${user.name}`.toLowerCase();
+      const username = user.username?.toLowerCase() || "";
+      const email = user.email?.toLowerCase() || "";
+      const phone = user.phone?.toLowerCase() || "";
+
+      return (
+        fullName.includes(searchTerm.toLowerCase()) ||
+        username.includes(searchTerm.toLowerCase()) ||
+        email.includes(searchTerm.toLowerCase()) ||
+        phone.includes(searchTerm.toLowerCase())
+      );
+    });
+
+    setFilteredUsers(filtered);
+  }, [searchTerm, users]);
+
+  const handleEdit = async (user: User) => {
     setIsEditing(true);
     setNewUser(user);
     setShowAddUserForm(true);
   };
 
-  const handleDelete = (id) => {
-    setUsers(users.filter((user) => user.id !== id));
+  const handleDelete = async (id: number) => {
+    setShowConfirmationModal(true);
+    setUserToDelete(id);
   };
 
-  const handleAddOrEditUser = () => {
+  const confirmDelete = async () => {
+    if (userToDelete !== null) {
+      await deleteUser(userToDelete);
+      setUsers(users.filter((user) => user.id !== userToDelete));
+    }
+    setShowConfirmationModal(false);
+  };
+
+  const handleAddOrEditUser = async () => {
     if (isEditing) {
+      await editUser(newUser.id, newUser);
       setUsers(users.map((user) => (user.id === newUser.id ? newUser : user)));
       setIsEditing(false);
     } else {
+      const addedUser = await addUser(newUser);
       const newUserId = users.length ? users[users.length - 1].id + 1 : 1;
       setUsers([...users, { ...newUser, id: newUserId }]);
     }
-    setNewUser({ id: 0, name: "", lastName: "", email: "" });
+    setNewUser({
+      id: 0,
+      name: "",
+      email: "",
+      username: "",
+      phone: "",
+    });
     setShowAddUserForm(false);
   };
 
   return (
-    <div className="">
-      <div className="">
-        {/* Main Card */}
-        <div className="">
-          {/* Header Section */}
-          <div className="">
-            <div className="">
-              <h1 className="">User Management</h1>
-              <div className="">
-                <div className="">
-                  <input
-                    type="text"
-                    placeholder="Search users..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                  />
-                  <Search />
-                </div>
-                <button
-                  onClick={() => {
-                    setShowAddUserForm(!showAddUserForm);
-                    setIsEditing(false);
-                    setNewUser({ id: 0, name: "", lastName: "", email: "" });
-                  }}
-                >
-                  {showAddUserForm ? (
-                    <X className="h-5 w-5" />
-                  ) : (
-                    <Plus className="h-5 w-5" />
-                  )}
-                  {showAddUserForm ? "Cancel" : "Add User"}
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* Form Section with smooth transition */}
-          {showAddUserForm && (
-            <div>
-              <div>
-                <h2>{isEditing ? "Edit User" : "Add New User"}</h2>
-                <form
-                  onSubmit={(e) => {
-                    e.preventDefault();
-                    handleAddOrEditUser();
-                  }}
-                  className="grid grid-cols-1 md:grid-cols-2 gap-6"
-                >
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-700">
-                      First Name
-                    </label>
-                    <input
-                      type="text"
-                      value={newUser.name}
-                      onChange={(e) =>
-                        setNewUser({ ...newUser, name: e.target.value })
-                      }
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Last Name
-                    </label>
-                    <input
-                      type="text"
-                      value={newUser.lastName}
-                      onChange={(e) =>
-                        setNewUser({ ...newUser, lastName: e.target.value })
-                      }
-                      required
-                    />
-                  </div>
-                  <div className="md:col-span-2 space-y-2">
-                    <label className="block text-sm font-medium text-gray-700">
-                      Email
-                    </label>
-                    <input
-                      type="email"
-                      value={newUser.email}
-                      onChange={(e) =>
-                        setNewUser({ ...newUser, email: e.target.value })
-                      }
-                      required
-                    />
-                  </div>
-                  <div className="md:col-span-2">
-                    <button type="submit">
-                      {isEditing ? "Update User" : "Add User"}
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          )}
-
-          {/* Table Section */}
+    <div className="user-management-container">
+      <div className="header-section">
+        <h1>User Management</h1>
+        <div className="actions">
           <div>
-            <table>
-              <thead className="bg-gray-50">
-                <tr>
-                  {[
-                    "ID",
-                    "Full Name",
-                    "Username",
-                    "Email",
-                    "Phone",
-                    "Website",
-                    "Actions",
-                  ].map((header) => (
-                    <th key={header}>{header}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {users.length > 0 ? (
-                  users.map((user) => (
-                    <tr key={user.id}>
-                      <td>{user.id}</td>
-                      <td>
-                        <div>
-                          {user.name} {user.lastName}
-                        </div>
-                      </td>
-                      <td>{user.username}</td>
-                      <td>{user.email}</td>
-                      <td>{user.phone}</td>
-                      <td>{user.website}</td>
-                      <td>
-                        <div className="flex gap-3">
-                          <button onClick={() => handleEdit(user)}>
-                            <Edit2 />
-                          </button>
-                          <button onClick={() => handleDelete(user.id)}>
-                            <Trash2 />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))
-                ) : (
-                  <tr>
-                    <td colSpan={7}>No users found</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+            <input
+              type="text"
+              placeholder="Search users"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
           </div>
+          <button
+            onClick={() => {
+              setShowAddUserForm(!showAddUserForm);
+              setIsEditing(false);
+              setNewUser({
+                id: 0,
+                name: "",
+                email: "",
+                username: "",
+                phone: "",
+              });
+            }}
+          >
+            {showAddUserForm ? <X /> : <Plus />}
+            {showAddUserForm ? "Cancel" : "Add User"}
+          </button>
         </div>
       </div>
+
+      {showAddUserForm && (
+        <div className="form-section">
+          <h2>{isEditing ? "Edit User" : "Add New User"}</h2>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleAddOrEditUser();
+            }}
+          >
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Full Name
+              </label>
+              <input
+                type="text"
+                value={newUser.name}
+                placeholder="Enter full name"
+                onChange={(e) =>
+                  setNewUser({ ...newUser, name: e.target.value })
+                }
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Username
+              </label>
+              <input
+                type="text"
+                value={newUser.username || ""}
+                placeholder="Enter username"
+                onChange={(e) =>
+                  setNewUser({ ...newUser, username: e.target.value })
+                }
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Email
+              </label>
+              <input
+                type="email"
+                value={newUser.email}
+                placeholder="Enter email"
+                onChange={(e) =>
+                  setNewUser({ ...newUser, email: e.target.value })
+                }
+                required
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Phone
+              </label>
+              <input
+                type="text"
+                value={newUser.phone || ""}
+                placeholder="Enter phone number"
+                onChange={(e) =>
+                  setNewUser({ ...newUser, phone: e.target.value })
+                }
+              />
+            </div>
+            <div>
+              <button type="submit">
+                {isEditing ? "Update User" : "Add User"}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      <div className="table-section">
+        <table>
+          <thead>
+            <tr>
+              {[
+                "ID",
+                "Full Name",
+                "Username",
+                "Email",
+                "Phone",
+                "Website",
+                "Actions",
+              ].map((header) => (
+                <th key={header}>{header}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filteredUsers.length > 0 ? (
+              filteredUsers.map((user) => (
+                <tr key={user.id}>
+                  <td>{user.id}</td>
+                  <td>{`${user.name}`}</td>
+                  <td>{user.username}</td>
+                  <td>{user.email}</td>
+                  <td>{user.phone}</td>
+                  <td>{user.website}</td>
+                  <td className="actions">
+                    <button onClick={() => handleEdit(user)}>
+                      <Edit2 />
+                    </button>
+                    <button
+                      className="trash-btn"
+                      onClick={() => handleDelete(user.id)}
+                    >
+                      <Trash2 />
+                    </button>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr className="no-data">
+                <td colSpan={7}>No users found</td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <ConfirmationModal
+        isOpen={showConfirmationModal}
+        onClose={() => setShowConfirmationModal(false)}
+        onConfirm={confirmDelete}
+      />
     </div>
   );
 };
