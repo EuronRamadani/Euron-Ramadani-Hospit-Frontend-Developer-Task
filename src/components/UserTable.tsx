@@ -9,9 +9,12 @@ import {
 } from "../services/userService";
 import "../assets/style.scss";
 import ConfirmationModal from "./modals/Confimation";
+
+const USERS_PER_PAGE = 8;
 interface User {
   id: number;
   name: string;
+  lastName: string;
   email: string;
   username?: string;
   phone?: string;
@@ -27,12 +30,16 @@ const UserTable = () => {
   const [newUser, setNewUser] = useState({
     id: 0,
     name: "",
+    lastName: "",
     email: "",
     username: "",
     phone: "",
   });
   const [showConfirmationModal, setShowConfirmationModal] = useState(false);
   const [userToDelete, setUserToDelete] = useState<number | null>(null);
+
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
 
   useEffect(() => {
     const getUsers = async () => {
@@ -45,7 +52,7 @@ const UserTable = () => {
 
   useEffect(() => {
     const filtered = users.filter((user) => {
-      const fullName = `${user.name}`.toLowerCase();
+      const fullName = `${user.name} ${user.lastName}`.toLowerCase();
       const username = user.username?.toLowerCase() || "";
       const email = user.email?.toLowerCase() || "";
       const phone = user.phone?.toLowerCase() || "";
@@ -59,7 +66,14 @@ const UserTable = () => {
     });
 
     setFilteredUsers(filtered);
+
+    setTotalPages(Math.ceil(filtered.length / USERS_PER_PAGE));
   }, [searchTerm, users]);
+
+  const usersToDisplay = filteredUsers.slice(
+    (currentPage - 1) * USERS_PER_PAGE,
+    currentPage * USERS_PER_PAGE
+  );
 
   const handleEdit = async (user: User) => {
     setIsEditing(true);
@@ -93,11 +107,24 @@ const UserTable = () => {
     setNewUser({
       id: 0,
       name: "",
+      lastName: "",
       email: "",
       username: "",
       phone: "",
     });
     setShowAddUserForm(false);
+  };
+
+  const handleNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  const handlePreviousPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
   };
 
   return (
@@ -108,10 +135,11 @@ const UserTable = () => {
           <div>
             <input
               type="text"
-              placeholder="Search users"
+              placeholder="Search users by name, username, email or phone..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
             />
+            {/* <Search /> */}
           </div>
           <button
             onClick={() => {
@@ -120,6 +148,7 @@ const UserTable = () => {
               setNewUser({
                 id: 0,
                 name: "",
+                lastName: "",
                 email: "",
                 username: "",
                 phone: "",
@@ -223,8 +252,8 @@ const UserTable = () => {
             </tr>
           </thead>
           <tbody>
-            {filteredUsers.length > 0 ? (
-              filteredUsers.map((user) => (
+            {usersToDisplay.length > 0 ? (
+              usersToDisplay.map((user) => (
                 <tr key={user.id}>
                   <td>{user.id}</td>
                   <td>{`${user.name}`}</td>
@@ -252,6 +281,18 @@ const UserTable = () => {
             )}
           </tbody>
         </table>
+      </div>
+
+      <div className="pagination-controls">
+        <button onClick={handlePreviousPage} disabled={currentPage === 1}>
+          Previous
+        </button>
+        <span>
+          Page {currentPage} of {totalPages}
+        </span>
+        <button onClick={handleNextPage} disabled={currentPage === totalPages}>
+          Next
+        </button>
       </div>
 
       <ConfirmationModal
